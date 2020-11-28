@@ -6,14 +6,14 @@ It will open a specified number concurrent connections to the websocket endpoint
 
 ## Usage
 
-FLAGS:
-- -h, --help       Prints help information
-- -V, --version    Prints version information
+**FLAGS:**
+- `-h, --help`      Prints help information
+- `-V, --version`   Prints version information
 
-OPTIONS:
-- -c, --connections <connections>    the number of concurrent connections to open
-- -g, --gateway <gateway-url>        the URL of the websocket gateway endpoint
-- -v, --verbose <verbose?>           increase verbosity: true | false
+**OPTIONS:**
+- `-c, --connections`   the number of concurrent connections to open
+- `-g, --gateway`       the URL of the websocket gateway endpoint
+- `-v, --verbose`       increase verbosity: true | false
 
 ## Development
 
