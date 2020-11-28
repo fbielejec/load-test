@@ -1,0 +1,15 @@
+[package]
+name = "ws-load-test"
+version = "0.1.0"
+authors = ["filip <fbielejec@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+async-std = "1.7.0"
+async-tungstenite = { version = "*", features = ["async-std-runtime", "async-tls"] }
+env_logger = "0.8"
+futures = "0.3"
+hdrhistogram = "7.1.0"
+log = "0.4"
+url = "2.0"
+clap = "2.33.3"
