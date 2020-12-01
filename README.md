@@ -20,7 +20,7 @@ It will open a specified number concurrent connections to the websocket endpoint
 - `-v, --verbose`       increase verbosity: true | false
 
 ```bash
-cargo run -- -v debug -c 3 -g ws://echo.websocket.org
+cargo run -- -v true -c 3 -g ws://echo.websocket.org
 ```
 
 ## Development
