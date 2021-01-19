@@ -1,15 +1,40 @@
 [package]
-name = "ws-load-test"
+name = "load-test"
 version = "0.1.0"
 authors = ["filip <fbielejec@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-async-std = "1.7.0"
-async-tungstenite = { version = "*", features = ["async-std-runtime", "async-tls"] }
-env_logger = "0.8"
-futures = "0.3"
+# shared
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
 hdrhistogram = "7.1.0"
 log = "0.4"
+env_logger = "0.8"
 url = "2.0"
 clap = "2.33.3"
+anyhow = "^1.0"
+
+# ws-load-test
+async-std = "1.7.0"
+async-tungstenite = { version = "*", features = ["async-std-runtime", "async-tls"] }
+
+# grpc-load-test
+# async-stream = "0.3"
+prost = "0.7"
+prost-types = "0.7"
+# tokio = { version = "1.0", features = ["rt-multi-thread", "time", "fs", "macros", "net"] }
+# tokio-stream = { version =  "0.1", features = ["net"] }
+tonic = "0.4.0"
+tower = { version = "0.4" }
+
+[build-dependencies]
+tonic-build = "0.2.0"
+
+[[bin]]
+name = "ws-load-test"
+path = "src/ws.rs"
+
+[[bin]]
+name = "grpc-load-test"
+path = "src/grpc.rs"
+

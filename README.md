@@ -1,6 +1,6 @@
-# [ws-load-test](https://github.com/fbielejec/ws-load-test)
+# [load-test](https://github.com/fbielejec/ws-load-test)
 
-ws-load-test is a high-throughput tool for testing websocket APIs.
+load-test is a high-throughput tool for testing websocket APIs.
 
 It will open a specified number concurrent connections to the websocket endpoint and start flooding it with PING requests, collecting measured time until the response arrives.
 
@@ -20,7 +20,7 @@ It will open a specified number concurrent connections to the websocket endpoint
 - `-v, --verbose`       increase verbosity: true | false
 
 ```bash
-cargo run -- -v true -c 3 -g ws://echo.websocket.org
+cargo run --bin ws-load-test -- -v true -c 3 -g ws://echo.websocket.org
 ```
 
 ## Development
@@ -29,3 +29,9 @@ Measurements and the reported statistics (count, min, mean, max) are collected a
 [High Dynamic Range Histograms](https://github.com/HdrHistogram/HdrHistogram_rust), a low-latency, high-range histogram implementation.
 
 Concurrent tasks (WS connections) rely on the [async-std](https://github.com/async-rs/async-std) asynchronous runtime, which chooses how to run them, i.e. how many threads to start and how to distribute tasks on them.
+
+### watch, build and run
+
+```bash
+cargo watch -s "cargo run --bin grpc-load-test -- --url http2://127.0.0.1:3001"
+```

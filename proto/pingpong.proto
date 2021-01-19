@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package pingpong;
+
+// service which can be executed
+service PingPong {
+  // function which can be called
+  rpc SendPing (Ping) returns (Pong) {}
+}
+
+// Empty message
+message Ping {
+}
+
+// return value
+message Pong {
+  // data type and position of data
+  string message = 1;
+}

@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package chat;
+
+// service Chat {
+//     rpc ChatStream (Empty) returns (stream ChatMessage);
+//     rpc SendMessage (ChatMessage) returns (Empty);
+// }
+
+service Chat {
+  // Bidirectional streaming RPC.
+  // Accepts a stream of ChatMessage's while receiving other ChatMessage's from other users.
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage) {}
+}
+
+message Empty {}
+
+message ChatMessage {
+  string to = 1;
+  string message = 2;
+}
+

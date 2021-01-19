@@ -15,8 +15,7 @@ use clap::{Arg, App};
 
 type MainResult<T> = Result<T, Box<dyn Error>>;
 
-#[derive(Debug)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Config {
     gateway_url: Url,
     n_connections: usize,
