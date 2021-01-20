@@ -72,7 +72,7 @@ async fn main()
             // }
         },
         n_connections: match matches.value_of("connections") {
-            None => 2,
+            None => 1000,
             Some(c) => {
                 match c.parse::<usize> () {
                     Ok (n) => n,
@@ -100,7 +100,7 @@ async fn main()
 
     let mut tasks = Vec::with_capacity(config.n_connections);
 
-    let start = Instant::now();
+    let tick = Instant::now();
 
     for id in 0..config.n_connections {
         let config = config.clone ();
@@ -114,43 +114,35 @@ async fn main()
         t.await?;
     }
 
-    let end = Instant::now();
+    let tock = tick.elapsed().as_millis();
 
-    // TODO : print statistics
+    // print statistics
+    // TODO : collect responses
 
+    let mut i = 0;
     let hist = hist.lock().unwrap();
-    let mut sum : u64 = 0u64;
-    hist
-        .iter_quantiles (1)
-        .for_each (|v: IterationValue<u64>| {
-            info!("v: {:#?}", v);
-            sum += v.count_since_last_iteration();
-        });
 
-    println!("Summary:\n Count: {}\n Total: {} ms\n Slowest: {} ms\n Fastest: {} ms\n Average: {} ms\n Throughput: {:.1} request/s",
+    println!("Summary:\n Count: {}\n Total: {} ms\n Slowest: {} ms\n Fastest: {} ms\n Average: {:.1} ms\n Throughput: {:.1} request/s",
              hist.count (),
-             sum,
+             // sum,
+             tock,
              hist.max (),
              hist.min (),
              hist.mean (),
-             1000000.0 * hist.count () as f64 / (end - start).as_micros() as f64
-             );
+             1000.0 * hist.count () as f64 / tock as f64
+    );
 
+    println!("Latency cumulative distribution:\n  5 % ≤ {:.2} ms\n 10 % ≤ {:.2} ms\n 50 % ≤ {:.2} ms\n 95 % ≤ {:.2} ms\n 99 % ≤ {:.2} ms \n 100% ≤ {:.2} ms",
+             hist.value_at_quantile (0.05f64),
+             hist.value_at_quantile (0.1f64),
+             hist.value_at_quantile (0.5f64),
+             hist.value_at_quantile (0.95f64),
+             hist.value_at_quantile (0.95f64),
+             hist.value_at_quantile (1.0f64)
+    );
 
-    // let mut hist = Histogram::<u64>::new_with_max(10000, 4).unwrap();
-    // for i in 0..100 {
-    //     hist += i;
-    // }
+    // TODO : print latency distribution (histogram)
 
-    // let mut sum : u64 = 0u64;
-    // hist.iter_quantiles (1)
-    //     // .iter_recorded ()
-    //     .for_each (|v: IterationValue<u64>| {
-    //         // info!("v: {:#?}", v);
-    //         sum += v.count_since_last_iteration();
-    //     });
-
-    // println!("{:?}", sum);
 
 
     Ok(())
@@ -158,8 +150,7 @@ async fn main()
 
 async fn client (client_id: &usize,
                  config : &Config,
-                 hist : Arc<Mutex<Histogram::<u64>>>)
-{
+                 hist : Arc<Mutex<Histogram::<u64>>>) {
 
     let Config { url, .. } = config;
 
@@ -177,7 +168,7 @@ async fn client (client_id: &usize,
     let mut hist = hist.lock().unwrap();
     *hist += response_time as u64;
 
-    info!("client id: {} response: {:#?} time: {}", client_id, response, response_time);
-
-    // Ok (())
+    if ((client_id % 100) == 0) {
+        info!("client id: {} response: {:#?} time: {}", client_id, response, response_time);
+    }
 }
