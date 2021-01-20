@@ -1,14 +1,21 @@
-use futures::prelude::*;
-use async_std::task;
-// use futures::{Stream, StreamExt};
-use std::pin::Pin;
-use std::env;
-use log::{debug, info};
-// use tokio::sync::mpsc;
 use clap::{Arg, App};
+use hdrhistogram::Histogram;
+use log::{debug, info};
+use std::env;
 use std::error::Error;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use std::time::Instant;
+use tokio::runtime::Runtime;
+use tokio::task;
+use tonic::transport::channel::Endpoint;
+use tonic::{Request, Response, Status};
+use hdrhistogram::iterators::IterationValue;
 use url::Url;
-// use tonic::{transport::Server, Request, Response, Status};
+
+mod utils;
 
 pub mod api {
     tonic::include_proto!("pingpong");
@@ -21,13 +28,15 @@ type MainResult<T> = Result<T, Box<dyn Error>>;
 
 #[derive(Clone, Debug)]
 struct Config {
-    url: Url,
+    url: String,
     n_connections: usize,
     verbosity: String
 }
 
-// #[tokio::main]
-fn main() -> MainResult<()> {
+#[tokio::main]
+async fn main()
+        -> Result<(), anyhow::Error>
+{
 
     let matches = App::new("ws-load-test")
         .version("0.1.0")
@@ -50,18 +59,20 @@ fn main() -> MainResult<()> {
              .help("the number of concurrent requests to make"))
         .get_matches();
 
-    let config = Config {
+    let config : Config = Config {
         url: match matches.value_of("url") {
             None => panic!("Unknown url argument"),
-            Some(url) => {
-                match Url::parse(url) {
-                    Ok(url) => url,
-                    Err(_) => panic!("Could not parse url"),
-                }
-            }
+            Some(url) => //Endpoint::from_static (url)
+            url.to_string ()
+            // {
+            //     match Url::parse(url) {
+            //         Ok(url) => url,
+            //         Err(_) => panic!("Could not parse url"),
+            //     }
+            // }
         },
         n_connections: match matches.value_of("connections") {
-            None => 1,
+            None => 2,
             Some(c) => {
                 match c.parse::<usize> () {
                     Ok (n) => n,
@@ -80,31 +91,90 @@ fn main() -> MainResult<()> {
         }
     };
 
-
     env::set_var("RUST_LOG", &config.verbosity);
     env_logger::init();
     info!("Running with config {:#?}", &config);
 
-    // let mut tasks = Vec::with_capacity(config.n_connections);
+    let h = Histogram::<u64>::new_with_bounds(1, 60000, 3).unwrap();
+    let hist = Arc::new (Mutex::new (h));
 
-        task::spawn(async move {
-            client(&config).await;
+    let mut tasks = Vec::with_capacity(config.n_connections);
+
+    for id in 0..config.n_connections {
+        let config = config.clone ();
+        let hist = hist.clone ();
+        tasks.push(tokio::spawn(async move {
+            client(&id, &config, hist).await;
+        }));
+    }
+
+    for t in tasks {
+        t.await?;
+    }
+
+    // TODO : print statistics
+
+    // TODO : throughput
+
+    let hist = hist.lock().unwrap();
+    let mut sum : u64 = 0u64;
+    hist
+        .iter_quantiles (1)
+        .for_each (|v: IterationValue<u64>| {
+            info!("v: {:#?}", v);
+            sum += v.count_since_last_iteration();
         });
 
-// TODO : make N concurrent requests and collect response times
+    println!("Summary:\n Count: {}\n Total: {} ms\n Slowest: {} ms\n Fastest: {} ms\n Average: {} ms\n",
+             hist.count (),
+             sum,
+             hist.max (),
+             hist.min (),
+             hist.mean ()
+    );
 
+
+    // let mut hist = Histogram::<u64>::new_with_max(10000, 4).unwrap();
+    // for i in 0..100 {
+    //     hist += i;
+    // }
+
+    // let mut sum : u64 = 0u64;
+    // hist.iter_quantiles (1)
+    //     // .iter_recorded ()
+    //     .for_each (|v: IterationValue<u64>| {
+    //         // info!("v: {:#?}", v);
+    //         sum += v.count_since_last_iteration();
+    //     });
+
+    // println!("{:?}", sum);
 
 
     Ok(())
 }
 
-async fn client(
-                config : &Config,
-) -> Result<(), anyhow::Error> {
+async fn client (client_id: &usize,
+                 config : &Config,
+                 hist : Arc<Mutex<Histogram::<u64>>>)
+{
 
-        let address = "http://127.0.0.1:3001";//.parse ().unwrap ();
-    //format!("{}:{}", &config.url.host ().unwrap (), &config.url.port ().unwrap ()).parse().unwrap();
-    let mut client = PingPongClient::connect(address).await?;
+    let Config { url, .. } = config;
 
-Ok (())
+    let address : Endpoint = Endpoint::from_static ("http://127.0.0.1:3001") ;
+    // let address : Endpoint = Endpoint::from_static (url) ;
+    let mut client = PingPongClient::connect(address).await.unwrap ();
+
+    let mut start_time = Instant::now();
+    let response = client.send_ping(Request::new(Ping {})).await.unwrap ();
+    let response_time = start_time.elapsed().as_millis();
+
+    // TODO : store response status
+
+    // threads should not fail while holding the lock.
+    let mut hist = hist.lock().unwrap();
+    *hist += response_time as u64;
+
+    info!("client id: {} response: {:#?} time: {}", client_id, response, response_time);
+
+    // Ok (())
 }
