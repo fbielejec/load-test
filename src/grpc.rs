@@ -100,6 +100,8 @@ async fn main()
 
     let mut tasks = Vec::with_capacity(config.n_connections);
 
+    let start = Instant::now();
+
     for id in 0..config.n_connections {
         let config = config.clone ();
         let hist = hist.clone ();
@@ -112,9 +114,9 @@ async fn main()
         t.await?;
     }
 
-    // TODO : print statistics
+    let end = Instant::now();
 
-    // TODO : throughput
+    // TODO : print statistics
 
     let hist = hist.lock().unwrap();
     let mut sum : u64 = 0u64;
@@ -125,13 +127,14 @@ async fn main()
             sum += v.count_since_last_iteration();
         });
 
-    println!("Summary:\n Count: {}\n Total: {} ms\n Slowest: {} ms\n Fastest: {} ms\n Average: {} ms\n",
+    println!("Summary:\n Count: {}\n Total: {} ms\n Slowest: {} ms\n Fastest: {} ms\n Average: {} ms\n Throughput: {:.1} request/s",
              hist.count (),
              sum,
              hist.max (),
              hist.min (),
-             hist.mean ()
-    );
+             hist.mean (),
+             1000000.0 * hist.count () as f64 / (end - start).as_micros() as f64
+             );
 
 
     // let mut hist = Histogram::<u64>::new_with_max(10000, 4).unwrap();
