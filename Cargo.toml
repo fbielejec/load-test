@@ -25,8 +25,9 @@ prost = "0.7"
 prost-types = "0.7"
 tokio = { version = "1.0", features = ["rt-multi-thread", "time", "fs", "macros", "net"] }
 tokio-stream = { version =  "0.1", features = ["net"] }
-tonic = "0.4.0"
+tonic = { version = "0.4.0", features = ["tls"] }
 tower = { version = "0.4" }
+http = "0.2.3"
 
 [build-dependencies]
 tonic-build = "0.2.0"

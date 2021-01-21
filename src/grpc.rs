@@ -6,7 +6,7 @@ use api::ping_pong_client::PingPongClient;
 use api::{Ping};
 use clap::{Arg, App};
 use hdrhistogram::Histogram as HdrHistogram;
-use log::{debug, info};
+use log::{debug, info, error};
 use plotlib::page::Page;
 use plotlib::repr::{Histogram, HistogramBins};
 use plotlib::view::ContinuousView;
@@ -14,13 +14,14 @@ use std::env;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
-use tonic::transport::channel::Endpoint;
-use tonic::Request;
-// user url::Url;
+use tonic::transport::{Channel, Endpoint, ClientTlsConfig};
+use tonic::{Request, Status, Code};
+// use url::Url;
+use http::Uri;
 
 #[derive(Clone, Debug)]
 struct Config {
-    url: String,
+    url: Endpoint,//String,
     n_connections: usize,
     verbosity: String
 }
@@ -52,17 +53,14 @@ async fn main() -> Result<(), anyhow::Error> {
     let config : Config = Config {
         url: match matches.value_of("url") {
             None => panic!("Unknown url argument"),
-            Some(url) => //Endpoint::from_static (url)
-            url.to_string ()
-            // {
-            //     match Url::parse(url) {
-            //         Ok(url) => url,
-            //         Err(_) => panic!("Could not parse url"),
-            //     }
-            // }
+            Some(url) => {
+                let uri = url.parse::<Uri>().expect ("Could not parse url");
+                let endpoint : Endpoint = Channel::builder (uri);//.tls_config(ClientTlsConfig::new()).unwrap ();
+                endpoint
+            }
         },
         n_connections: match matches.value_of("connections") {
-            None => 20,
+            None => 1,
             Some(c) => {
                 match c.parse::<usize> () {
                     Ok (n) => n,
@@ -70,14 +68,10 @@ async fn main() -> Result<(), anyhow::Error> {
                 }
             }
         },
-        verbosity: match matches.value_of("verbose?") {
+        verbosity: match matches.value_of("verbosity") {
             None => "info".to_string (),
-            Some (v) => {
-                match v.parse::<bool> ().expect ("Could not parse verbosity argument") {
-                    true => "debug".to_string (),
-                    false => "info".to_string ()
-                }
-            }
+            Some (v) =>
+                v.parse::<String> ().expect ("Could not parse verbosity argument")
         }
     };
 
@@ -147,18 +141,20 @@ async fn client (client_id: &usize,
 
     let Config { url, .. } = config;
 
-    // TODO : pass from config
-    let address : Endpoint = Endpoint::from_static ("http2://localhost:50051");
-    // let address : Endpoint = Endpoint::from_static (url) ;
-    let mut client = PingPongClient::connect(address).await.unwrap ();
-
+    let mut client = PingPongClient::connect(url.clone ()).await.unwrap ();
     let start_time = Instant::now();
-    let response = client.send_ping(Request::new(Ping {})).await.unwrap ();
+    let status : Status = match client.send_ping(Request::new(Ping {})).await {
+        Ok (response) => Status::new(Code::Ok, "Ok"),
+        Err (error) => {
+            error!("Error: {:?}", error);
+            error
+        }
+    };
     let response_time = start_time.elapsed().as_millis();
 
     // threads should not fail while holding the lock
     let mut hist = hist.lock().unwrap();
     *hist += response_time as u64;
 
-    debug!("Client {} on {:?} received {:?} latency {}", client_id, thread::current().id(), response, response_time);
+    debug!("Client {} on {:?} received {:?}, latency: {} ms", client_id, thread::current().id(), status, response_time);
 }

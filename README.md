@@ -8,7 +8,7 @@ It will open a specified number concurrent connections to the websocket endpoint
 
 * [Blog article](https://www.blog.nodrama.io/rust-websocket/)
 
-## Usage
+## Usage [ws]
 
 **FLAGS:**
 - `-h, --help`      Prints help information
@@ -23,6 +23,23 @@ It will open a specified number concurrent connections to the websocket endpoint
 cargo run --bin ws-load-test -- -v true -c 3 -g ws://echo.websocket.org
 ```
 
+Compile release binary:
+```bash
+cargo build --release --bin ws-load-test
+```
+
+## Usage [gRPC]
+
+Compile release binary:
+```bash
+cargo build --release --bin grpc-load-test
+```
+
+Run:
+```bash
+./target/release/grpc-load-test --url http2://localhost:50051 -c 1000
+```
+
 ## Development
 
 Measurements and the reported statistics (count, min, mean, max) are collected across all client connection tasks using Rust port of
@@ -35,5 +52,5 @@ Concurrent tasks (WS connections) rely on the [async-std](https://github.com/asy
 Example:
 
 ```bash
-cargo watch -s "cargo run --bin grpc-load-test -- --url http2://localhost:50051"
+cargo watch -s "cargo run --bin grpc-load-test -- --url http2://localhost:50051 -v debug -c 10"
 ```
