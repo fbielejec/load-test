@@ -1,79 +1,25 @@
+mod shared;
 pub mod api {
     tonic::include_proto!("pingpong");
 }
 
 use api::ping_pong_client::PingPongClient;
 use api::{Ping};
-use clap::{Arg, App};
 use hdrhistogram::Histogram as HdrHistogram;
 use log::{debug, info, error};
-use plotlib::page::Page;
-use plotlib::repr::{Histogram, HistogramBins};
-use plotlib::view::ContinuousView;
 use std::env;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 use tonic::transport::{Channel, Endpoint, ClientTlsConfig};
 use tonic::{Request, Status, Code};
-// use url::Url;
 use http::Uri;
-
-#[derive(Clone, Debug)]
-struct Config {
-    url: Endpoint,//String,
-    n_connections: usize,
-    verbosity: String
-}
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 
-    let matches = App::new("ws-load-test")
-        .version("0.1.0")
-        .author("filip bielejec <fbielejec@gmail.com>")
-        .about("high-throughput tool for testing gRPC APIs")
-        .arg(Arg::with_name("verbosity")
-             .short("v")
-             .long("verbosity")
-             .takes_value(true)
-             .help("verbosity level : debug | info | warn | error"))
-        .arg(Arg::with_name("url")
-             .short("u")
-             .long("url")
-             .takes_value(true)
-             .help("the URL of the gRPC endpoint"))
-        .arg(Arg::with_name("connections")
-             .short("c")
-             .long("connections")
-             .takes_value(true)
-             .help("the number of concurrent requests to make"))
-        .get_matches();
-
-    let config : Config = Config {
-        url: match matches.value_of("url") {
-            None => panic!("Unknown url argument"),
-            Some(url) => {
-                let uri = url.parse::<Uri>().expect ("Could not parse url");
-                let endpoint : Endpoint = Channel::builder (uri);//.tls_config(ClientTlsConfig::new()).unwrap ();
-                endpoint
-            }
-        },
-        n_connections: match matches.value_of("connections") {
-            None => 1,
-            Some(c) => {
-                match c.parse::<usize> () {
-                    Ok (n) => n,
-                    Err (_) => panic!("Wrong number of connections specified {}", c)
-                }
-            }
-        },
-        verbosity: match matches.value_of("verbosity") {
-            None => "info".to_string (),
-            Some (v) =>
-                v.parse::<String> ().expect ("Could not parse verbosity argument")
-        }
-    };
+    let matches = shared::build_app ().get_matches();
+    let config = shared::build_config (&matches);
 
     env::set_var("RUST_LOG", &config.verbosity);
     env_logger::init();
@@ -85,10 +31,12 @@ async fn main() -> Result<(), anyhow::Error> {
     let tick = Instant::now();
 
     for id in 0..config.n_connections {
-        let config = config.clone ();
         let hist = hist.clone ();
+        let uri = config.url.parse::<Uri>().expect ("Could not parse url");
+        let endpoint : Endpoint = Channel::builder (uri);//.tls_config(ClientTlsConfig::new()).unwrap ();
+
         tasks.push(tokio::spawn(async move {
-            client(&id, &config, hist).await;
+            client(&id, &endpoint, hist).await;
         }));
     }
 
@@ -96,55 +44,21 @@ async fn main() -> Result<(), anyhow::Error> {
         t.await?;
     }
 
-    let tock = tick.elapsed().as_millis();
     let hist = hist.lock().unwrap();
-
-    println!("Summary:\n Requests:   {}\n Total:      {} ms\n Slowest:    {} ms\n Fastest:    {} ms\n Average:    {:.1} ms\n Throughput: {:.1} request/s",
-             hist.len (),
-             tock,
-             hist.max (),
-             hist.min (),
-             hist.mean (),
-             1000.0 * hist.len () as f64 / tock as f64
-    );
-
-    println!("Cumulative distribution of the response times:\n  5% ≤ {:.2} ms\n 10% ≤ {:.2} ms\n 50% ≤ {:.2} ms\n 95% ≤ {:.2} ms\n 99% ≤ {:.2} ms",
-             hist.value_at_quantile (0.05f64),
-             hist.value_at_quantile (0.1f64),
-             hist.value_at_quantile (0.5f64),
-             hist.value_at_quantile (0.95f64),
-             hist.value_at_quantile (0.95f64)
-    );
-
-    let mut data : Vec<f64> = Vec::new();
-    hist.iter_recorded()
-        .for_each(|value| {
-            (0..value.count_at_value ())
-                .for_each (|_| {
-                    data.push(value.value_iterated_to () as f64);
-                });
-        });
-
-    let h = Histogram::from_slice(&data, HistogramBins::Count(10));
-    let v = ContinuousView::new().add(h);
-
-    println!("Distribution of the response times:");
-    println!("{}", Page::single(&v).dimensions(60, 15).to_text().unwrap());
+    shared::print_stats (&hist, tick);
 
     Ok(())
 }
 
 // TODO : store grpc response status
 async fn client (client_id: &usize,
-                 config : &Config,
+                 url: &Endpoint,
                  hist : Arc<Mutex<HdrHistogram::<u64>>>) {
-
-    let Config { url, .. } = config;
 
     let mut client = PingPongClient::connect(url.clone ()).await.unwrap ();
     let start_time = Instant::now();
     let status : Status = match client.send_ping(Request::new(Ping {})).await {
-        Ok (response) => Status::new(Code::Ok, "Ok"),
+        Ok (_) => Status::new(Code::Ok, "Ok"),
         Err (error) => {
             error!("Error: {:?}", error);
             error

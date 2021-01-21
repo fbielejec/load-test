@@ -1,14 +1,18 @@
 # [load-test](https://github.com/fbielejec/ws-load-test)
 
-load-test is a high-throughput tool for testing websocket APIs.
+load-test is a high-throughput tool for testing APIs.
 
-It will open a specified number concurrent connections to the websocket endpoint and start flooding it with PING requests, collecting measured time until the response arrives.
+It will open a specified number concurrent connections to the endpoint and start flooding it with PING requests, collecting measured time until the response arrives.
+
+Load-test comes in two flavours:
+- websocket client
+- gRPC client
 
 ## Blog Article:
 
 * [Blog article](https://www.blog.nodrama.io/rust-websocket/)
 
-## Usage [ws]
+## Usage
 
 **FLAGS:**
 - `-h, --help`      Prints help information
@@ -17,26 +21,19 @@ It will open a specified number concurrent connections to the websocket endpoint
 **OPTIONS:**
 - `-c, --connections`   the number of concurrent connections to open
 - `-g, --gateway`       the URL of the websocket gateway endpoint
-- `-v, --verbose`       increase verbosity: true | false
+- `-v, --verbose`       verbosity: info | debug | warn | error
 
-```bash
-cargo run --bin ws-load-test -- -v true -c 3 -g ws://echo.websocket.org
-```
+Compile release binaries:
 
-Compile release binary:
 ```bash
 cargo build --release --bin ws-load-test
-```
-
-## Usage [gRPC]
-
-Compile release binary:
-```bash
 cargo build --release --bin grpc-load-test
 ```
 
 Run:
+
 ```bash
+./target/release/ws-load-test --url ws://localhost:3001 -c 1000
 ./target/release/grpc-load-test --url http2://localhost:50051 -c 1000
 ```
 
@@ -52,5 +49,5 @@ Concurrent tasks (WS connections) rely on the [async-std](https://github.com/asy
 Example:
 
 ```bash
-cargo watch -s "cargo run --bin grpc-load-test -- --url http2://localhost:50051 -v debug -c 10"
+cargo watch -s "cargo run --bin ws-load-test -- --url ws://echo.websocket.org -v info -c 10"
 ```
