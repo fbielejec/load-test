@@ -32,6 +32,8 @@ Concurrent tasks (WS connections) rely on the [async-std](https://github.com/asy
 
 ### watch, build and run
 
+Example:
+
 ```bash
-cargo watch -s "cargo run --bin grpc-load-test -- --url http2://127.0.0.1:3001"
+cargo watch -s "cargo run --bin grpc-load-test -- --url http2://localhost:50051"
 ```
