@@ -12,7 +12,14 @@ Load-test comes in two flavours:
 
 * [Blog article](https://www.blog.nodrama.io/rust-websocket/)
 
+
 ## Usage
+
+**INSTALLATION**:
+```bash
+cargo install load-test --git https://github.com/fbielejec/load-test.git
+```
+This will download, compile, and install the `ws-load-test` and `grpc-load-test` binaries into your `PATH`
 
 **FLAGS:**
 - `-h, --help`      Prints help information
@@ -22,6 +29,8 @@ Load-test comes in two flavours:
 - `-c, --connections`   the number of concurrent connections to open
 - `-g, --gateway`       the URL of the websocket gateway endpoint
 - `-v, --verbose`       verbosity: info | debug | warn | error
+
+## Building from source
 
 Compile release binaries:
 
